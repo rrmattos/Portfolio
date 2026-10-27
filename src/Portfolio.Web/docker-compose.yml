@@ -21,6 +21,15 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Server=db;Port=3306;Database=portfoliodb;Uid=root;Pwd=${DB_PASSWORD};
+      - Jwt__Key=${JWT_KEY}
+      - Admin__Email=${ADMIN_EMAIL}
+      - Admin__Password=${ADMIN_PASSWORD}
+      # Deixar ja mapeado para formulário de contato no site
+      - Smtp__Host=${SMTP_HOST}
+      - Smtp__User=${SMTP_USER}
+      - Smtp__Password=${SMTP_PASSWORD}
+      - Smtp__From=${SMTP_FROM}
+      - Smtp__NotifyTo=${SMTP_NOTIFY_TO}
     volumes:
       - app_uploads:/app/wwwroot/uploads
     depends_on:
