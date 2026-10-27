@@ -1,8 +1,8 @@
 <article class="card project-card glass" style="--delay:@(Index * 80)ms">
     <a href="/projetos/@Project.Id" class="project-thumb" aria-label="Ver detalhes de @Project.Title">
-        @if (!string.IsNullOrWhiteSpace(Project.ImageUrl))
+        @if (!string.IsNullOrWhiteSpace(Project.DisplayCoverUrl))
         {
-            <img src="@Project.ImageUrl" alt="Capa do projeto @Project.Title" loading="lazy" />
+            <img src="@Project.DisplayCoverUrl" alt="Capa do projeto @Project.Title" loading="lazy" />
         }
         else
         {

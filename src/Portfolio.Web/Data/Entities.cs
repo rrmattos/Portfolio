@@ -46,12 +46,40 @@ public class Project
 
     public DateTime? UpdatedAt { get; set; }
 
+    /// <summary>Galeria de imagens/vídeos do projeto (ordenada por DisplayOrder).</summary>
+    public List<ProjectMedia> Medias { get; set; } = [];
+
     public IEnumerable<string> TechList => SplitTags(Technologies);
+
+    /// <summary>Capa a exibir: a imagem de capa ou, se não houver, a primeira imagem da galeria.</summary>
+    public string? DisplayCoverUrl => !string.IsNullOrWhiteSpace(ImageUrl)
+        ? ImageUrl
+        : Medias.OrderBy(m => m.DisplayOrder).FirstOrDefault(m => m.MediaType == MediaType.Image)?.MediaUrl;
 
     internal static IEnumerable<string> SplitTags(string? value) =>
         string.IsNullOrWhiteSpace(value)
             ? []
             : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+}
+
+public enum MediaType
+{
+    Image = 0,
+    Video = 1,
+}
+
+public class ProjectMedia
+{
+    public int Id { get; set; }
+
+    public int ProjectId { get; set; }
+
+    [Required, StringLength(300)]
+    public string MediaUrl { get; set; } = string.Empty;
+
+    public MediaType MediaType { get; set; }
+
+    public int DisplayOrder { get; set; }
 }
 
 public class Experience

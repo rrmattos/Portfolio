@@ -15,4 +15,10 @@
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
   </ItemGroup>
 
+  <!-- Prevent dotnet watch from restarting the app or refreshing browser when files are uploaded -->
+  <ItemGroup>
+    <Watch Remove="wwwroot\uploads\**" />
+    <Content Update="wwwroot\uploads\**" Watch="false" />
+  </ItemGroup>
+
 </Project>

@@ -8,9 +8,9 @@
     <HeadContent>
         <meta name="description" content="@_project.Summary" />
         <meta property="og:title" content="@_project.Title" />
-        @if (!string.IsNullOrWhiteSpace(_project.ImageUrl))
+        @if (!string.IsNullOrWhiteSpace(_project.DisplayCoverUrl))
         {
-            <meta property="og:image" content="@_project.ImageUrl" />
+            <meta property="og:image" content="@_project.DisplayCoverUrl" />
         }
     </HeadContent>
 
@@ -32,10 +32,51 @@
             </div>
         </header>
 
+        <!-- PASSADOR DE MÍDIAS (HERO CAROUSEL) -->
         <div class="detail-cover glass">
-            @if (!string.IsNullOrWhiteSpace(_project.ImageUrl))
+            @if (_slides.Count > 0)
             {
-                <img src="@_project.ImageUrl" alt="Capa do projeto @_project.Title" />
+                var currentSlide = _slides[_currentSlideIndex];
+                <div class="carousel-viewport">
+                    <div class="carousel-slide" @key="currentSlide.Url">
+                        @if (currentSlide.Type == MediaType.Video)
+                        {
+                            <div class="carousel-video-wrapper">
+                                <video src="@currentSlide.Url" controls preload="metadata" playsinline></video>
+                            </div>
+                        }
+                        else
+                        {
+                            <img src="@currentSlide.Url" alt="@_project.Title" @onclick="() => _activeImageModal = currentSlide.Url" title="Clique para ampliar" />
+                        }
+                    </div>
+                </div>
+
+                @if (_slides.Count > 1)
+                {
+                    <button type="button" class="carousel-nav-btn prev" aria-label="Mídia anterior" @onclick="PrevSlide">
+                        <Icon Name="chevron-left" Size="24" />
+                    </button>
+                    <button type="button" class="carousel-nav-btn next" aria-label="Próxima mídia" @onclick="NextSlide">
+                        <Icon Name="chevron-right" Size="24" />
+                    </button>
+
+                    <div class="carousel-counter">
+                        @(_currentSlideIndex + 1) / @_slides.Count
+                    </div>
+
+                    <div class="carousel-dots">
+                        @for (var i = 0; i < _slides.Count; i++)
+                        {
+                            var idx = i;
+                            <button type="button" 
+                                    class="carousel-dot @(idx == _currentSlideIndex ? "active" : "")" 
+                                    aria-label="Ir para mídia @(idx + 1)"
+                                    @onclick="() => GoToSlide(idx)">
+                            </button>
+                        }
+                    </div>
+                }
             }
             else
             {
@@ -58,6 +99,7 @@
                     }
                 }
             </div>
+
             <aside class="card glass detail-side">
                 <h3>Tecnologias</h3>
                 <ul class="tags">
@@ -71,6 +113,19 @@
             </aside>
         </div>
     </article>
+
+    @* MODAL LIGHTBOX PARA AMPLIAR IMAGEM *@
+    @if (!string.IsNullOrWhiteSpace(_activeImageModal))
+    {
+        <div class="lightbox-backdrop" @onclick="() => _activeImageModal = null">
+            <div class="lightbox-content" @onclick:stopPropagation="true">
+                <button type="button" class="lightbox-close" aria-label="Fechar" @onclick="() => _activeImageModal = null">
+                    <Icon Name="x" Size="24" />
+                </button>
+                <img src="@_activeImageModal" alt="Visualização ampliada" />
+            </div>
+        </div>
+    }
 }
 else if (_notFound)
 {
@@ -92,6 +147,11 @@ else
 
     private Project? _project;
     private bool _notFound;
+    private string? _activeImageModal;
+
+    private record SlideItem(string Url, MediaType Type);
+    private readonly List<SlideItem> _slides = [];
+    private int _currentSlideIndex = 0;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -100,11 +160,54 @@ else
         try
         {
             _project = await Portfolio.GetProjectAsync(Id, publishedOnly: true);
+            SetupSlides();
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Erro ao carregar projeto {Id}", Id);
         }
         _notFound = _project is null;
+    }
+
+    private void SetupSlides()
+    {
+        _slides.Clear();
+        _currentSlideIndex = 0;
+        if (_project is null) return;
+
+        // Se houver capa principal, inicia com ela
+        if (!string.IsNullOrWhiteSpace(_project.ImageUrl))
+        {
+            _slides.Add(new SlideItem(_project.ImageUrl, MediaType.Image));
+        }
+
+        // Adiciona as mídias da galeria, evitando duplicar caso a URL seja igual à capa
+        foreach (var m in _project.Medias)
+        {
+            if (!_slides.Any(s => s.Url.Equals(m.MediaUrl, StringComparison.OrdinalIgnoreCase)))
+            {
+                _slides.Add(new SlideItem(m.MediaUrl, m.MediaType));
+            }
+        }
+    }
+
+    private void NextSlide()
+    {
+        if (_slides.Count <= 1) return;
+        _currentSlideIndex = (_currentSlideIndex + 1) % _slides.Count;
+    }
+
+    private void PrevSlide()
+    {
+        if (_slides.Count <= 1) return;
+        _currentSlideIndex = (_currentSlideIndex - 1 + _slides.Count) % _slides.Count;
+    }
+
+    private void GoToSlide(int index)
+    {
+        if (index >= 0 && index < _slides.Count)
+        {
+            _currentSlideIndex = index;
+        }
     }
 }

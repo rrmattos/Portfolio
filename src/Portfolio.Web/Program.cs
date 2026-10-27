@@ -68,8 +68,8 @@ builder.Services.AddScoped<ContactService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options => options.DetailedErrors = builder.Environment.IsDevelopment())
-    // Allow image uploads up to 5 MB through the SignalR circuit.
-    .AddHubOptions(options => options.MaximumReceiveMessageSize = 6 * 1024 * 1024);
+    // Allow media uploads up to 5 MB (with base64/SignalR overhead and multiple files) through the SignalR circuit.
+    .AddHubOptions(options => options.MaximumReceiveMessageSize = 32 * 1024 * 1024);
 
 var app = builder.Build();
 

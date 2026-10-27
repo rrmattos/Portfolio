@@ -56,7 +56,7 @@ public static class ApiEndpoints
             if (await svc.GetProjectAsync(id) is null) return TypedResults.NotFound();
             p.Id = id;
             if (Validate(p) is { } errors) return TypedResults.ValidationProblem(errors);
-            return TypedResults.Ok(await svc.SaveProjectAsync(p));
+            return TypedResults.Ok(await svc.SaveProjectAsync(p, syncMedias: false));
         });
 
         admin.MapDelete("/projects/{id:int}", async Task<Results<NoContent, NotFound>> (int id, PortfolioService svc) =>
@@ -72,6 +72,27 @@ public static class ApiEndpoints
             {
                 await using var stream = file.OpenReadStream();
                 project.ImageUrl = await images.SaveAsync(stream, file.ContentType);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return TypedResults.BadRequest(ex.Message);
+            }
+            return TypedResults.Ok(await svc.SaveProjectAsync(project));
+        });
+
+        // multipart/form-data with a "file" field (image or mp4/webm video)
+        admin.MapPost("/projects/{id:int}/media", async Task<Results<Ok<Project>, NotFound, BadRequest<string>>> (
+            int id, IFormFile file, PortfolioService svc, ImageStorageService images) =>
+        {
+            var project = await svc.GetProjectAsync(id);
+            if (project is null) return TypedResults.NotFound();
+            if (project.Medias.Count >= ImageStorageService.MaxGalleryItems)
+                return TypedResults.BadRequest($"Limite de {ImageStorageService.MaxGalleryItems} itens na galeria.");
+            try
+            {
+                await using var stream = file.OpenReadStream();
+                var (url, type) = await images.SaveMediaAsync(stream, file.ContentType);
+                project.Medias.Add(new ProjectMedia { MediaUrl = url, MediaType = type });
             }
             catch (InvalidOperationException ex)
             {

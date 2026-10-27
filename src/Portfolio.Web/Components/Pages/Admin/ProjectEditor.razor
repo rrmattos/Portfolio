@@ -28,49 +28,116 @@ else
     <EditForm Model="_model" OnValidSubmit="SaveAsync" FormName="project-editor" class="editor-grid" novalidate>
         <DataAnnotationsValidator />
 
-        <div class="card glass editor-main">
-            <div class="field">
-                <label for="p-title">Título</label>
-                <InputText id="p-title" @bind-Value="_model.Title" placeholder="Nome do projeto" />
-                <ValidationMessage For="() => _model.Title" />
+        <div class="editor-main-col">
+            <div class="card glass editor-main">
+                <div class="field">
+                    <label for="p-title">Título</label>
+                    <InputText id="p-title" @bind-Value="_model.Title" placeholder="Nome do projeto" />
+                    <ValidationMessage For="() => _model.Title" />
+                </div>
+                <div class="field">
+                    <label for="p-summary">Resumo <span class="optional">(aparece no card)</span></label>
+                    <InputTextArea id="p-summary" rows="2" @bind-Value="_model.Summary" maxlength="280" placeholder="Uma ou duas frases sobre o projeto" />
+                    <span class="hint">@(_model.Summary?.Length ?? 0)/280</span>
+                    <ValidationMessage For="() => _model.Summary" />
+                </div>
+                <div class="field">
+                    <label for="p-description">Descrição completa</label>
+                    <InputTextArea id="p-description" rows="9" @bind-Value="_model.Description" placeholder="Contexto, desafios, solução e resultados. Separe parágrafos com uma linha em branco." />
+                </div>
+                <div class="field">
+                    <label for="p-tech">Tecnologias <span class="optional">(separadas por vírgula)</span></label>
+                    <InputText id="p-tech" @bind-Value="_model.Technologies" @bind-Value:event="oninput" placeholder="C#, Blazor, MySQL" />
+                    @if (_model.TechList.Any())
+                    {
+                        <ul class="tags preview">
+                            @foreach (var t in _model.TechList) { <li class="tag">@t</li> }
+                        </ul>
+                    }
+                </div>
+                <div class="form-row">
+                    <div class="field">
+                        <label for="p-repo">Repositório</label>
+                        <InputText id="p-repo" type="url" @bind-Value="_model.RepositoryUrl" placeholder="https://github.com/..." />
+                        <ValidationMessage For="() => _model.RepositoryUrl" />
+                    </div>
+                    <div class="field">
+                        <label for="p-live">Link online</label>
+                        <InputText id="p-live" type="url" @bind-Value="_model.LiveUrl" placeholder="https://..." />
+                        <ValidationMessage For="() => _model.LiveUrl" />
+                    </div>
+                </div>
             </div>
-            <div class="field">
-                <label for="p-summary">Resumo <span class="optional">(aparece no card)</span></label>
-                <InputTextArea id="p-summary" rows="2" @bind-Value="_model.Summary" maxlength="280" placeholder="Uma ou duas frases sobre o projeto" />
-                <span class="hint">@(_model.Summary?.Length ?? 0)/280</span>
-                <ValidationMessage For="() => _model.Summary" />
-            </div>
-            <div class="field">
-                <label for="p-description">Descrição completa</label>
-                <InputTextArea id="p-description" rows="9" @bind-Value="_model.Description" placeholder="Contexto, desafios, solução e resultados. Separe parágrafos com uma linha em branco." />
-            </div>
-            <div class="field">
-                <label for="p-tech">Tecnologias <span class="optional">(separadas por vírgula)</span></label>
-                <InputText id="p-tech" @bind-Value="_model.Technologies" @bind-Value:event="oninput" placeholder="C#, Blazor, MySQL" />
-                @if (_model.TechList.Any())
+
+            <!-- GALERIA DE MÍDIAS (IMAGENS E VÍDEOS LEVES) -->
+            <div class="card glass editor-gallery">
+                <div class="gallery-head">
+                    <div>
+                        <h3 class="side-title">Galeria de Mídias (Fotos e Vídeos)</h3>
+                        <p class="hint">Adicione capturas de tela ou vídeos leves (.mp4, .webm até 5 MB) demonstrando o projeto.</p>
+                    </div>
+                    <span class="badge @(_model.Medias.Count >= ImageStorageService.MaxGalleryItems ? "badge-danger" : "badge-featured sm")">
+                        @_model.Medias.Count / @ImageStorageService.MaxGalleryItems
+                    </span>
+                </div>
+
+                @if (_model.Medias.Count < ImageStorageService.MaxGalleryItems)
                 {
-                    <ul class="tags preview">
-                        @foreach (var t in _model.TechList) { <li class="tag">@t</li> }
-                    </ul>
+                    <div class="gallery-dropzone @(_uploadingMedia ? "busy" : "")">
+                        <InputFile @key="_galleryInputKey" id="p-gallery" OnChange="UploadGalleryMediaAsync" multiple accept="@ImageStorageService.MediaAcceptAttribute" />
+                        <span class="stat-icon cyan"><Icon Name="upload" Size="20" /></span>
+                        <p><strong>Clique para adicionar fotos ou vídeos</strong></p>
+                        <p class="hint">JPG, PNG, WEBP, GIF, MP4 ou WEBM · máx 5 MB cada</p>
+                        @if (_uploadingMedia)
+                        {
+                            <div class="dropzone-overlay"><span class="spinner lg"></span></div>
+                        }
+                    </div>
                 }
-            </div>
-            <div class="form-row">
-                <div class="field">
-                    <label for="p-repo">Repositório</label>
-                    <InputText id="p-repo" type="url" @bind-Value="_model.RepositoryUrl" placeholder="https://github.com/..." />
-                    <ValidationMessage For="() => _model.RepositoryUrl" />
-                </div>
-                <div class="field">
-                    <label for="p-live">Link online</label>
-                    <InputText id="p-live" type="url" @bind-Value="_model.LiveUrl" placeholder="https://..." />
-                    <ValidationMessage For="() => _model.LiveUrl" />
-                </div>
+
+                @if (_galleryError is not null)
+                {
+                    <p class="alert alert-error sm">@_galleryError</p>
+                }
+
+                @if (_model.Medias.Count > 0)
+                {
+                    <div class="gallery-grid">
+                        @foreach (var (m, index) in _model.Medias.Select((m, i) => (m, i)))
+                        {
+                            <div class="gallery-item glass" @key="m.MediaUrl">
+                                <div class="gallery-preview">
+                                    @if (m.MediaType == MediaType.Video)
+                                    {
+                                        <video src="@m.MediaUrl" muted loop playsinline></video>
+                                        <span class="media-type-badge"><Icon Name="sparkles" Size="12" /> Vídeo</span>
+                                    }
+                                    else
+                                    {
+                                        <img src="@m.MediaUrl" alt="Mídia do projeto" />
+                                    }
+                                </div>
+                                <div class="gallery-item-actions">
+                                    <button type="button" class="icon-btn sm" title="Mover para esquerda" disabled="@(index == 0)" @onclick="() => MoveMedia(index, -1)">
+                                        <Icon Name="arrow-left" Size="14" />
+                                    </button>
+                                    <button type="button" class="icon-btn sm" title="Mover para direita" disabled="@(index == _model.Medias.Count - 1)" @onclick="() => MoveMedia(index, 1)">
+                                        <Icon Name="arrow-right" Size="14" />
+                                    </button>
+                                    <button type="button" class="icon-btn danger sm" title="Remover" @onclick="() => RemoveMedia(m)">
+                                        <Icon Name="trash" Size="14" />
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
             </div>
         </div>
 
         <aside class="editor-side">
             <div class="card glass">
-                <h3 class="side-title">Imagem de capa</h3>
+                <h3 class="side-title">Imagem de capa principal</h3>
                 <div class="dropzone @(_uploading ? "busy" : "") @(string.IsNullOrWhiteSpace(_model.ImageUrl) ? "" : "has-image")">
                     @if (!string.IsNullOrWhiteSpace(_model.ImageUrl))
                     {
@@ -88,7 +155,7 @@ else
                     {
                         <div class="dropzone-overlay"><span class="spinner lg"></span></div>
                     }
-                    <InputFile id="p-image" OnChange="UploadAsync" accept="@ImageStorageService.AcceptAttribute" title="Selecionar imagem" />
+                    <InputFile @key="_coverInputKey" id="p-image" OnChange="UploadAsync" accept="@ImageStorageService.AcceptAttribute" title="Selecionar imagem de capa" />
                 </div>
                 @if (_uploadError is not null)
                 {
@@ -96,7 +163,7 @@ else
                 }
                 @if (!string.IsNullOrWhiteSpace(_model.ImageUrl))
                 {
-                    <button id="p-image-remove" type="button" class="btn btn-ghost btn-sm btn-block" @onclick="RemoveImage"><Icon Name="trash" Size="16" /> Remover imagem</button>
+                    <button id="p-image-remove" type="button" class="btn btn-ghost btn-sm btn-block" @onclick="RemoveImage"><Icon Name="trash" Size="16" /> Remover capa</button>
                 }
             </div>
 
@@ -131,7 +198,7 @@ else
 
             <div class="editor-actions">
                 <a href="/admin/projetos" class="btn btn-ghost">Cancelar</a>
-                <button id="p-save" type="submit" class="btn btn-primary" disabled="@(_saving || _uploading)">
+                <button id="p-save" type="submit" class="btn btn-primary" disabled="@(_saving || _uploading || _uploadingMedia)">
                     @if (_saving) { <span class="spinner"></span> } else { <Icon Name="check" /> }
                     Salvar projeto
                 </button>
@@ -146,14 +213,25 @@ else
     private bool IsNew => Id is null;
 
     private Project? _model;
-    private bool _notFound, _uploading, _saving, _saved;
-    private string? _uploadError, _saveError;
+    private int? _loadedId;
+    private bool _notFound, _uploading, _uploadingMedia, _saving;
+    private string? _uploadError, _galleryError, _saveError;
+    private int _coverInputKey = 0;
+    private int _galleryInputKey = 0;
 
-    // Image uploaded during this session but not yet saved; deleted if the user leaves without saving.
-    private string? _pendingUpload;
+    // Arquivos subidos durante esta sessão que ainda não foram persistidos no DB.
+    private string? _pendingCoverUpload;
+    private readonly List<string> _pendingGalleryUploads = [];
 
     protected override async Task OnParametersSetAsync()
     {
+        // Se o projeto já foi carregado para este Id, não sobrescreva as alterações não salvas do usuário!
+        if (Id == _loadedId && _model is not null)
+        {
+            return;
+        }
+
+        _loadedId = Id;
         if (IsNew)
         {
             _model = new Project { IsPublished = true };
@@ -174,13 +252,15 @@ else
         }
 
         _uploading = true;
+        StateHasChanged();
         try
         {
             await using var stream = file.OpenReadStream(ImageStorageService.MaxFileSize);
             var url = await Images.SaveAsync(stream, file.ContentType);
-            DiscardPending();
-            _pendingUpload = url;
+            DiscardPendingCover();
+            _pendingCoverUpload = url;
             _model!.ImageUrl = url;
+            _coverInputKey++;
         }
         catch (InvalidOperationException ex)
         {
@@ -188,26 +268,95 @@ else
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Falha no upload de imagem");
+            Logger.LogError(ex, "Falha no upload de imagem de capa");
             _uploadError = "Falha ao enviar a imagem. Tente novamente.";
         }
         finally
         {
             _uploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UploadGalleryMediaAsync(InputFileChangeEventArgs e)
+    {
+        _galleryError = null;
+        var files = e.GetMultipleFiles(ImageStorageService.MaxGalleryItems).ToList();
+        if (_model!.Medias.Count + files.Count > ImageStorageService.MaxGalleryItems)
+        {
+            _galleryError = $"Limite máximo de {ImageStorageService.MaxGalleryItems} mídias atingido.";
+            return;
+        }
+
+        _uploadingMedia = true;
+        StateHasChanged();
+        try
+        {
+            foreach (var file in files)
+            {
+                if (file.Size > ImageStorageService.MaxFileSize)
+                {
+                    _galleryError = $"O arquivo '{file.Name}' ultrapassa 5 MB.";
+                    continue;
+                }
+
+                await using var stream = file.OpenReadStream(ImageStorageService.MaxFileSize);
+                var (url, type) = await Images.SaveMediaAsync(stream, file.ContentType);
+                _pendingGalleryUploads.Add(url);
+                _model.Medias.Add(new ProjectMedia
+                {
+                    MediaUrl = url,
+                    MediaType = type,
+                    DisplayOrder = _model.Medias.Count
+                });
+            }
+            _galleryInputKey++;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _galleryError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Falha no upload de mídia da galeria");
+            _galleryError = "Erro ao enviar um ou mais arquivos: " + ex.Message;
+        }
+        finally
+        {
+            _uploadingMedia = false;
+            StateHasChanged();
+        }
+    }
+
+    private void MoveMedia(int index, int direction)
+    {
+        var target = index + direction;
+        if (target < 0 || target >= _model!.Medias.Count) return;
+        var item = _model.Medias[index];
+        _model.Medias.RemoveAt(index);
+        _model.Medias.Insert(target, item);
+    }
+
+    private void RemoveMedia(ProjectMedia media)
+    {
+        _model!.Medias.Remove(media);
+        if (_pendingGalleryUploads.Remove(media.MediaUrl))
+        {
+            Images.Delete(media.MediaUrl);
         }
     }
 
     private void RemoveImage()
     {
-        DiscardPending();
+        DiscardPendingCover();
         _model!.ImageUrl = null;
     }
 
-    private void DiscardPending()
+    private void DiscardPendingCover()
     {
-        if (_pendingUpload is null) return;
-        Images.Delete(_pendingUpload);
-        _pendingUpload = null;
+        if (_pendingCoverUpload is null) return;
+        Images.Delete(_pendingCoverUpload);
+        _pendingCoverUpload = null;
     }
 
     private async Task SaveAsync()
@@ -216,9 +365,9 @@ else
         _saveError = null;
         try
         {
-            await Portfolio.SaveProjectAsync(_model!);
-            _saved = true;
-            _pendingUpload = null;
+            await Portfolio.SaveProjectAsync(_model!, syncMedias: true);
+            _pendingCoverUpload = null;
+            _pendingGalleryUploads.Clear();
             Nav.NavigateTo("/admin/projetos");
         }
         catch (Exception ex)
@@ -234,6 +383,7 @@ else
 
     public void Dispose()
     {
-        if (!_saved) DiscardPending();
+        // Não apagamos mídias automaticamente no Dispose para evitar perda de dados caso ocorra uma perda transitória de conexão.
+        // A limpeza de arquivos descartados é tratada no SaveProjectAsync ao sincronizar o banco.
     }
 }
