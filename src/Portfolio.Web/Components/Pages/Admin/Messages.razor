@@ -1,0 +1,114 @@
+@page "/admin/mensagens"
+@inject ContactService Contact
+
+<PageTitle>Mensagens | Painel</PageTitle>
+
+<header class="admin-head">
+    <div>
+        <h1>Mensagens</h1>
+        <p class="muted">Contatos recebidos pelo formulário do site.</p>
+    </div>
+</header>
+
+@if (_messages is null)
+{
+    <div class="card skeleton"></div>
+}
+else if (_messages.Count == 0)
+{
+    <div class="card glass empty-state">
+        <span class="stat-icon pink"><Icon Name="inbox" Size="26" /></span>
+        <h2>Caixa de entrada vazia</h2>
+        <p class="muted">Quando alguém usar o formulário de contato, a mensagem aparecerá aqui.</p>
+    </div>
+}
+else
+{
+    <div class="inbox">
+        <ul class="inbox-list card glass">
+            @foreach (var m in _messages)
+            {
+                <li @key="m.Id">
+                    <button id="msg-@m.Id" class="inbox-item @(m.IsRead ? "" : "unread") @(_selected?.Id == m.Id ? "active" : "")" @onclick="() => SelectAsync(m)">
+                        <span class="avatar">@m.Name[..1].ToUpperInvariant()</span>
+                        <span class="inbox-item-body">
+                            <span class="inbox-item-top">
+                                <strong>@m.Name</strong>
+                                <time>@m.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</time>
+                            </span>
+                            <span class="clamp-1">@(m.Subject ?? "(sem assunto)")</span>
+                            <span class="muted clamp-1">@m.Message</span>
+                        </span>
+                    </button>
+                </li>
+            }
+        </ul>
+
+        <section class="card glass inbox-view">
+            @if (_selected is null)
+            {
+                <div class="inbox-placeholder muted">
+                    <Icon Name="mail" Size="36" />
+                    <p>Selecione uma mensagem para ler.</p>
+                </div>
+            }
+            else
+            {
+                <header class="inbox-view-head">
+                    <div>
+                        <h2>@(_selected.Subject ?? "(sem assunto)")</h2>
+                        <p class="muted">
+                            <strong>@_selected.Name</strong> &lt;<a href="mailto:@_selected.Email">@_selected.Email</a>&gt;
+                            · @_selected.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy 'às' HH:mm")
+                        </p>
+                    </div>
+                    <div class="nowrap">
+                        <button class="icon-btn" title="@(_selected.IsRead ? "Marcar como não lida" : "Marcar como lida")" @onclick="ToggleReadAsync">
+                            <Icon Name="@(_selected.IsRead ? "eye-off" : "eye")" />
+                        </button>
+                        <button id="msg-delete" class="icon-btn danger" title="Excluir" @onclick="() => _confirm.Show()"><Icon Name="trash" /></button>
+                    </div>
+                </header>
+                <p class="pre-line inbox-body">@_selected.Message</p>
+                <a class="btn btn-primary" href="mailto:@_selected.Email?subject=@Uri.EscapeDataString("Re: " + (_selected.Subject ?? "Contato pelo portfólio"))">
+                    <Icon Name="send" /> Responder por e-mail
+                </a>
+            }
+        </section>
+    </div>
+}
+
+<ConfirmDialog @ref="_confirm" Title="Excluir mensagem?" OnConfirm="DeleteAsync" />
+
+@code {
+    private List<ContactMessage>? _messages;
+    private ContactMessage? _selected;
+    private ConfirmDialog _confirm = default!;
+
+    protected override async Task OnInitializedAsync() => _messages = await Contact.GetMessagesAsync();
+
+    private async Task SelectAsync(ContactMessage m)
+    {
+        _selected = m;
+        if (!m.IsRead)
+        {
+            await Contact.SetReadAsync(m.Id, true);
+            m.IsRead = true;
+        }
+    }
+
+    private async Task ToggleReadAsync()
+    {
+        if (_selected is null) return;
+        _selected.IsRead = !_selected.IsRead;
+        await Contact.SetReadAsync(_selected.Id, _selected.IsRead);
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_selected is null) return;
+        await Contact.DeleteAsync(_selected.Id);
+        _messages!.Remove(_selected);
+        _selected = null;
+    }
+}

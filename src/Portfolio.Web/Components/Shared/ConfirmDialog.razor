@@ -1,0 +1,43 @@
+@if (Visible)
+{
+    <div class="modal-backdrop" @onclick="Cancel">
+        <div class="modal glass" role="dialog" aria-modal="true" aria-labelledby="confirm-title" @onclick:stopPropagation="true">
+            <span class="modal-icon danger"><Icon Name="trash" Size="22" /></span>
+            <h3 id="confirm-title">@Title</h3>
+            <p class="muted">@Message</p>
+            <div class="modal-actions">
+                <button id="confirm-cancel" class="btn btn-ghost" @onclick="Cancel">Cancelar</button>
+                <button id="confirm-ok" class="btn btn-danger" @onclick="Confirm" disabled="@_busy">
+                    @if (_busy) { <span class="spinner"></span> }
+                    @ConfirmText
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "Tem certeza?";
+    [Parameter] public string Message { get; set; } = "Esta ação não pode ser desfeita.";
+    [Parameter] public string ConfirmText { get; set; } = "Excluir";
+    [Parameter] public EventCallback OnConfirm { get; set; }
+
+    public bool Visible { get; private set; }
+    private bool _busy;
+
+    public void Show(string? message = null)
+    {
+        if (message is not null) Message = message;
+        Visible = true;
+        StateHasChanged();
+    }
+
+    private void Cancel() => Visible = false;
+
+    private async Task Confirm()
+    {
+        _busy = true;
+        try { await OnConfirm.InvokeAsync(); }
+        finally { _busy = false; Visible = false; }
+    }
+}

@@ -1,0 +1,54 @@
+@using System.Globalization
+
+@if (Items.Count == 0)
+{
+    <p class="muted empty-hint">Nenhuma experiência cadastrada ainda.</p>
+}
+else
+{
+    <ol class="timeline">
+        @foreach (var (exp, i) in Items.Select((e, i) => (e, i)))
+        {
+            <li class="timeline-item" style="--delay:@(i * 90)ms">
+                <span class="timeline-dot @(exp.IsCurrent ? "current" : "")"></span>
+                <div class="card glass timeline-card">
+                    <div class="timeline-head">
+                        <div>
+                            <h3>@exp.Role</h3>
+                            <p class="timeline-company">
+                                <Icon Name="briefcase" Size="15" /> @exp.Company
+                                @if (!string.IsNullOrWhiteSpace(exp.Location))
+                                {
+                                    <span class="dot-sep">•</span> <Icon Name="map-pin" Size="15" /> @exp.Location
+                                }
+                            </p>
+                        </div>
+                        <span class="period @(exp.IsCurrent ? "current" : "")">
+                            @Format(exp.StartDate) — @(exp.IsCurrent || exp.EndDate is null ? "Atual" : Format(exp.EndDate.Value))
+                        </span>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(exp.Description))
+                    {
+                        <p class="muted pre-line">@exp.Description</p>
+                    }
+                    @if (exp.TechList.Any())
+                    {
+                        <ul class="tags">
+                            @foreach (var t in exp.TechList)
+                            {
+                                <li class="tag">@t</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </li>
+        }
+    </ol>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<Experience> Items { get; set; } = [];
+
+    private static readonly CultureInfo PtBr = new("pt-BR");
+    private static string Format(DateTime d) => PtBr.TextInfo.ToTitleCase(d.ToString("MMM yyyy", PtBr).Replace(".", ""));
+}

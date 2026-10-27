@@ -1,0 +1,114 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject JwtAuthStateProvider Auth
+@inject NavigationManager Nav
+
+@*
+    Admin guard: nothing inside @Body is rendered (so admin pages never load data)
+    until a valid JWT is confirmed. The check re-runs on every navigation, so an
+    expired token sends the user back to the login page.
+*@
+
+<div class="admin-shell">
+    @if (_user is null)
+    {
+        <div class="admin-loading">
+            <span class="spinner lg"></span>
+            <p class="muted">Verificando acesso...</p>
+        </div>
+    }
+    else
+    {
+        <aside class="admin-sidebar @(_sidebarOpen ? "open" : "")">
+            <a href="/admin" class="brand">
+                <span class="brand-mark">⌘</span>
+                <span class="brand-name">Painel</span>
+            </a>
+            <nav class="admin-nav" aria-label="Administração">
+                <NavLink href="/admin" Match="NavLinkMatch.All"><Icon Name="grid" /> Dashboard</NavLink>
+                <NavLink href="/admin/projetos"><Icon Name="folder" /> Projetos</NavLink>
+                <NavLink href="/admin/experiencias"><Icon Name="briefcase" /> Experiências</NavLink>
+                <NavLink href="/admin/mensagens"><Icon Name="inbox" /> Mensagens</NavLink>
+            </nav>
+            <div class="admin-sidebar-foot">
+                <a href="/" target="_blank" class="admin-nav-link"><Icon Name="home" /> Ver site</a>
+                <div class="admin-user">
+                    <span class="avatar">@_user[..1].ToUpperInvariant()</span>
+                    <span class="admin-user-email" title="@_user">@_user</span>
+                </div>
+                <button id="admin-logout" class="btn btn-ghost btn-block btn-sm" @onclick="LogoutAsync"><Icon Name="logout" /> Sair</button>
+            </div>
+        </aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar">
+                <button class="nav-toggle @(_sidebarOpen ? "open" : "")" aria-label="Menu" @onclick="() => _sidebarOpen = !_sidebarOpen">
+                    <span></span><span></span><span></span>
+                </button>
+            </header>
+            <div class="admin-content">
+                @Body
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string? _user;
+    private bool _sidebarOpen;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Auth.AuthenticationStateChanged += OnAuthChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Browser storage is only reachable after the first interactive render.
+        if (firstRender) await CheckAsync();
+    }
+
+    private async Task CheckAsync()
+    {
+        var state = await Auth.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true && state.User.IsInRole(TokenService.AdminRole))
+        {
+            if (_user is null)
+            {
+                _user = state.User.Identity.Name ?? "admin";
+                StateHasChanged();
+            }
+        }
+        else
+        {
+            var returnUrl = Uri.EscapeDataString(Nav.ToBaseRelativePath(Nav.Uri));
+            Nav.NavigateTo($"/admin/login?returnUrl={returnUrl}");
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _sidebarOpen = false;
+        if (Nav.ToBaseRelativePath(e.Location).StartsWith("admin/login")) return;
+        _ = InvokeAsync(CheckAsync);
+    }
+
+    private void OnAuthChanged(Task<AuthenticationState> task) => _ = InvokeAsync(async () =>
+    {
+        var state = await task;
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            _user = null;
+            Nav.NavigateTo("/admin/login");
+        }
+    });
+
+    private async Task LogoutAsync() => await Auth.SignOutAsync();
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        Auth.AuthenticationStateChanged -= OnAuthChanged;
+    }
+}

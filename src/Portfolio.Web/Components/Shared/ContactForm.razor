@@ -1,0 +1,113 @@
+@inject ContactService Contact
+@inject ILogger<ContactForm> Logger
+
+<div class="card glass contact-card">
+    @if (_sent)
+    {
+        <div class="form-success" role="status">
+            <span class="success-icon"><Icon Name="check" Size="28" /></span>
+            <h3>Mensagem enviada!</h3>
+            <p class="muted">Obrigado pelo contato, @_sentName. Responderei o mais breve possível.</p>
+            <button id="contact-new" class="btn btn-ghost" @onclick="Reset">Enviar outra mensagem</button>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync" FormName="contact" novalidate>
+            <DataAnnotationsValidator />
+
+            <div class="form-row">
+                <div class="field">
+                    <label for="contact-name">Nome</label>
+                    <InputText id="contact-name" @bind-Value="_model.Name" placeholder="Seu nome" autocomplete="name" />
+                    <ValidationMessage For="() => _model.Name" />
+                </div>
+                <div class="field">
+                    <label for="contact-email">E-mail</label>
+                    <InputText id="contact-email" type="email" @bind-Value="_model.Email" placeholder="voce@email.com" autocomplete="email" />
+                    <ValidationMessage For="() => _model.Email" />
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="contact-subject">Assunto <span class="optional">(opcional)</span></label>
+                <InputText id="contact-subject" @bind-Value="_model.Subject" placeholder="Proposta, dúvida, parceria..." />
+            </div>
+
+            <div class="field">
+                <label for="contact-message">Mensagem</label>
+                <InputTextArea id="contact-message" rows="5" @bind-Value="_model.Message" placeholder="Conte um pouco sobre o que você precisa..." />
+                <ValidationMessage For="() => _model.Message" />
+            </div>
+
+            @* Honeypot: hidden from humans, bots tend to fill it. *@
+            <div class="hp" aria-hidden="true">
+                <label for="contact-website">Website</label>
+                <input id="contact-website" tabindex="-1" autocomplete="off" @bind="_honeypot" />
+            </div>
+
+            @if (_error is not null)
+            {
+                <p class="alert alert-error" role="alert">@_error</p>
+            }
+
+            <button id="contact-submit" type="submit" class="btn btn-primary btn-block" disabled="@_sending">
+                @if (_sending)
+                {
+                    <span class="spinner"></span> <span>Enviando...</span>
+                }
+                else
+                {
+                    <Icon Name="send" /> <span>Enviar mensagem</span>
+                }
+            </button>
+        </EditForm>
+    }
+</div>
+
+@code {
+    private ContactMessage _model = new();
+    private string? _honeypot;
+    private bool _sending, _sent;
+    private string? _error, _sentName;
+    private DateTime _lastSubmit = DateTime.MinValue;
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+
+        // Silently accept bot submissions without storing them.
+        if (!string.IsNullOrEmpty(_honeypot)) { _sent = true; return; }
+
+        // Simple per-circuit throttle.
+        if (DateTime.UtcNow - _lastSubmit < TimeSpan.FromSeconds(30))
+        {
+            _error = "Aguarde alguns segundos antes de enviar outra mensagem.";
+            return;
+        }
+
+        _sending = true;
+        try
+        {
+            await Contact.SubmitAsync(_model);
+            _lastSubmit = DateTime.UtcNow;
+            _sentName = _model.Name.Split(' ')[0];
+            _sent = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao salvar mensagem de contato");
+            _error = "Não foi possível enviar sua mensagem agora. Tente novamente mais tarde.";
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private void Reset()
+    {
+        _model = new();
+        _sent = false;
+    }
+}

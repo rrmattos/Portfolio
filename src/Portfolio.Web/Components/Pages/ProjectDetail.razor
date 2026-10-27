@@ -1,0 +1,110 @@
+@page "/projetos/{Id:int}"
+@inject PortfolioService Portfolio
+@inject ILogger<ProjectDetail> Logger
+
+@if (_project is not null)
+{
+    <PageTitle>@_project.Title | Projetos</PageTitle>
+    <HeadContent>
+        <meta name="description" content="@_project.Summary" />
+        <meta property="og:title" content="@_project.Title" />
+        @if (!string.IsNullOrWhiteSpace(_project.ImageUrl))
+        {
+            <meta property="og:image" content="@_project.ImageUrl" />
+        }
+    </HeadContent>
+
+    <article class="section container page-top project-detail">
+        <a href="/projetos" class="link-back"><Icon Name="arrow-left" Size="16" /> Voltar aos projetos</a>
+
+        <header class="detail-head">
+            <h1 class="display-sm">@_project.Title</h1>
+            <p class="lead">@_project.Summary</p>
+            <div class="detail-actions">
+                @if (!string.IsNullOrWhiteSpace(_project.LiveUrl))
+                {
+                    <a href="@_project.LiveUrl" target="_blank" rel="noopener" class="btn btn-primary"><Icon Name="external" /> Ver online</a>
+                }
+                @if (_project.ShowRepository && !string.IsNullOrWhiteSpace(_project.RepositoryUrl))
+                {
+                    <a href="@_project.RepositoryUrl" target="_blank" rel="noopener" class="btn btn-ghost"><Icon Name="github" /> Código fonte</a>
+                }
+            </div>
+        </header>
+
+        <div class="detail-cover glass">
+            @if (!string.IsNullOrWhiteSpace(_project.ImageUrl))
+            {
+                <img src="@_project.ImageUrl" alt="Capa do projeto @_project.Title" />
+            }
+            else
+            {
+                <div class="thumb-fallback big"><span>@_project.Title[..1]</span></div>
+            }
+        </div>
+
+        <div class="detail-grid">
+            <div class="detail-body">
+                <h2>Sobre o projeto</h2>
+                @if (string.IsNullOrWhiteSpace(_project.Description))
+                {
+                    <p class="muted">@_project.Summary</p>
+                }
+                else
+                {
+                    @foreach (var paragraph in _project.Description.Split("\n\n", StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        <p class="pre-line">@paragraph.Trim()</p>
+                    }
+                }
+            </div>
+            <aside class="card glass detail-side">
+                <h3>Tecnologias</h3>
+                <ul class="tags">
+                    @foreach (var t in _project.TechList)
+                    {
+                        <li class="tag">@t</li>
+                    }
+                </ul>
+                <h3>Publicado em</h3>
+                <p class="muted"><Icon Name="calendar" Size="16" /> @_project.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</p>
+            </aside>
+        </div>
+    </article>
+}
+else if (_notFound)
+{
+    <PageTitle>Projeto não encontrado</PageTitle>
+    <section class="container empty-page">
+        <span class="eyebrow">404</span>
+        <h1 class="display-sm">Projeto não encontrado</h1>
+        <p class="muted">Ele pode ter sido removido ou ainda não foi publicado.</p>
+        <a href="/projetos" class="btn btn-primary">Ver todos os projetos</a>
+    </section>
+}
+else
+{
+    <section class="container page-top"><div class="card skeleton tall"></div></section>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Project? _project;
+    private bool _notFound;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _project = null;
+        _notFound = false;
+        try
+        {
+            _project = await Portfolio.GetProjectAsync(Id, publishedOnly: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao carregar projeto {Id}", Id);
+        }
+        _notFound = _project is null;
+    }
+}

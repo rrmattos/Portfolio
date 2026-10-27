@@ -1,0 +1,55 @@
+<article class="card project-card glass" style="--delay:@(Index * 80)ms">
+    <a href="/projetos/@Project.Id" class="project-thumb" aria-label="Ver detalhes de @Project.Title">
+        @if (!string.IsNullOrWhiteSpace(Project.ImageUrl))
+        {
+            <img src="@Project.ImageUrl" alt="Capa do projeto @Project.Title" loading="lazy" />
+        }
+        else
+        {
+            <div class="thumb-fallback" style="--hue:@Hue">
+                <span>@Project.Title[..1]</span>
+            </div>
+        }
+        @if (Project.IsFeatured)
+        {
+            <span class="badge badge-featured"><Icon Name="star" Size="12" /> Destaque</span>
+        }
+    </a>
+
+    <div class="project-body">
+        <h3><a href="/projetos/@Project.Id">@Project.Title</a></h3>
+        <p class="muted">@Project.Summary</p>
+
+        @if (Project.TechList.Any())
+        {
+            <ul class="tags">
+                @foreach (var tech in Project.TechList.Take(5))
+                {
+                    <li class="tag">@tech</li>
+                }
+            </ul>
+        }
+
+        <div class="project-actions">
+            <a href="/projetos/@Project.Id" class="link-arrow">Detalhes <Icon Name="arrow-right" Size="16" /></a>
+            <div class="icon-links">
+                @if (Project.ShowRepository && !string.IsNullOrWhiteSpace(Project.RepositoryUrl))
+                {
+                    <a href="@Project.RepositoryUrl" target="_blank" rel="noopener" aria-label="Repositório"><Icon Name="github" /></a>
+                }
+                @if (!string.IsNullOrWhiteSpace(Project.LiveUrl))
+                {
+                    <a href="@Project.LiveUrl" target="_blank" rel="noopener" aria-label="Ver online"><Icon Name="external" /></a>
+                }
+            </div>
+        </div>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public Project Project { get; set; } = default!;
+    [Parameter] public int Index { get; set; }
+
+    // Stable hue per project for the gradient fallback thumbnail.
+    private int Hue => 220 + Math.Abs(Project.Title.GetHashCode() % 120);
+}

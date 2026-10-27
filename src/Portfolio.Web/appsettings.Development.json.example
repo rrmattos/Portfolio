@@ -1,0 +1,21 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Port=3306;Database=portfolio;User=portfolio;Password=SEU_PASSWORD_LOCAL_AQUI;CharSet=utf8mb4;"
+  },
+  "Jwt": {
+    "Key": "coloque-sua-chave-secreta-jwt-de-desenvolvimento-com-minimo-32-chars"
+  },
+  "Admin": {
+    "Email": "admin@exemplo.local",
+    "Password": "SuaSenhaDeTeste"
+  },
+  "Seed": {
+    "SampleData": true
+  }
+}

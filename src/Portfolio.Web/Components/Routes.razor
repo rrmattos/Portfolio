@@ -1,0 +1,17 @@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <PageTitle>Página não encontrada</PageTitle>
+            <section class="container empty-page">
+                <span class="eyebrow">Erro 404</span>
+                <h1 class="display">Página não encontrada</h1>
+                <p class="muted">O endereço que você procurou não existe ou foi removido.</p>
+                <a href="/" class="btn btn-primary">Voltar ao início</a>
+            </section>
+        </LayoutView>
+    </NotFound>
+</Router>

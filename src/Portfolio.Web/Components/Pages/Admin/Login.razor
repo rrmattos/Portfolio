@@ -1,0 +1,108 @@
+@page "/admin/login"
+@layout Portfolio.Web.Components.Layout.BlankLayout
+@using System.ComponentModel.DataAnnotations
+@inject TokenService Tokens
+@inject JwtAuthStateProvider Auth
+@inject NavigationManager Nav
+@inject ILogger<Login> Logger
+
+<PageTitle>Entrar | Painel administrativo</PageTitle>
+<HeadContent><meta name="robots" content="noindex" /></HeadContent>
+
+<section class="login-page">
+    <div class="card glass login-card">
+        <div class="login-head">
+            <span class="login-icon"><Icon Name="lock" Size="24" /></span>
+            <h1>Painel administrativo</h1>
+            <p class="muted">Entre para gerenciar seus projetos e experiências.</p>
+        </div>
+
+        <EditForm Model="_model" OnValidSubmit="LoginAsync" FormName="login" novalidate>
+            <DataAnnotationsValidator />
+            <div class="field">
+                <label for="login-email">E-mail</label>
+                <InputText id="login-email" type="email" @bind-Value="_model.Email" autocomplete="username" placeholder="admin@email.com" />
+                <ValidationMessage For="() => _model.Email" />
+            </div>
+            <div class="field">
+                <label for="login-password">Senha</label>
+                <div class="input-icon">
+                    <InputText id="login-password" type="@(_showPassword ? "text" : "password")" @bind-Value="_model.Password" autocomplete="current-password" placeholder="••••••••" />
+                    <button type="button" class="input-icon-btn" aria-label="Mostrar senha" @onclick="() => _showPassword = !_showPassword">
+                        <Icon Name="@(_showPassword ? "eye-off" : "eye")" />
+                    </button>
+                </div>
+                <ValidationMessage For="() => _model.Password" />
+            </div>
+
+            @if (_error is not null)
+            {
+                <p class="alert alert-error" role="alert">@_error</p>
+            }
+
+            <button id="login-submit" type="submit" class="btn btn-primary btn-block btn-lg" disabled="@_busy">
+                @if (_busy) { <span class="spinner"></span> <span>Entrando...</span> }
+                else { <span>Entrar</span> <Icon Name="arrow-right" /> }
+            </button>
+        </EditForm>
+
+        <a href="/" class="link-back center"><Icon Name="arrow-left" Size="16" /> Voltar ao site</a>
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private readonly LoginModel _model = new();
+    private bool _busy, _showPassword;
+    private string? _error;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        // Already signed in? Go straight to the dashboard.
+        var state = await Auth.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true) Nav.NavigateTo(SafeReturnUrl);
+    }
+
+    private async Task LoginAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var result = await Tokens.LoginAsync(_model.Email, _model.Password);
+            if (!result.Success)
+            {
+                _error = result.Error;
+                return;
+            }
+            await Auth.SignInAsync(result.Token!);
+            Nav.NavigateTo(SafeReturnUrl);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro no login");
+            _error = "Não foi possível entrar agora. Verifique a conexão com o banco de dados.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    // Only allow local admin paths to avoid open redirects.
+    private string SafeReturnUrl =>
+        !string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith("admin") && !ReturnUrl.StartsWith("admin/login")
+            ? "/" + ReturnUrl
+            : "/admin";
+
+    private class LoginModel
+    {
+        [Required(ErrorMessage = "Informe o e-mail."), EmailAddress(ErrorMessage = "E-mail inválido.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Informe a senha.")]
+        public string Password { get; set; } = "";
+    }
+}

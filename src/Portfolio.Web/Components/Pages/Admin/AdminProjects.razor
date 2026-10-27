@@ -1,0 +1,107 @@
+@page "/admin/projetos"
+@inject PortfolioService Portfolio
+
+<PageTitle>Projetos | Painel</PageTitle>
+
+<header class="admin-head">
+    <div>
+        <h1>Projetos</h1>
+        <p class="muted">Cadastre, edite e publique seus projetos.</p>
+    </div>
+    <a id="projects-new" href="/admin/projetos/novo" class="btn btn-primary"><Icon Name="plus" /> Novo projeto</a>
+</header>
+
+@if (_message is not null)
+{
+    <p class="alert alert-success">@_message</p>
+}
+
+@if (_projects is null)
+{
+    <div class="card skeleton"></div>
+}
+else if (_projects.Count == 0)
+{
+    <div class="card glass empty-state">
+        <span class="stat-icon violet"><Icon Name="folder" Size="26" /></span>
+        <h2>Nenhum projeto ainda</h2>
+        <p class="muted">Comece cadastrando seu primeiro projeto com imagem de capa.</p>
+        <a href="/admin/projetos/novo" class="btn btn-primary"><Icon Name="plus" /> Cadastrar projeto</a>
+    </div>
+}
+else
+{
+    <div class="card glass table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Projeto</th>
+                    <th class="hide-sm">Tecnologias</th>
+                    <th>Status</th>
+                    <th class="hide-sm">Ordem</th>
+                    <th class="right">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in _projects)
+                {
+                    <tr @key="p.Id">
+                        <td>
+                            <div class="cell-project">
+                                @if (!string.IsNullOrWhiteSpace(p.ImageUrl))
+                                {
+                                    <img src="@p.ImageUrl" alt="" class="mini-thumb" />
+                                }
+                                else
+                                {
+                                    <span class="mini-thumb fallback"><Icon Name="image" Size="16" /></span>
+                                }
+                                <div>
+                                    <strong>@p.Title</strong>
+                                    @if (p.IsFeatured) { <span class="badge badge-featured sm"><Icon Name="star" Size="10" /> Destaque</span> }
+                                    <p class="muted clamp-1">@p.Summary</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hide-sm"><span class="muted clamp-1">@p.Technologies</span></td>
+                        <td>
+                            <span class="status @(p.IsPublished ? "on" : "off")">@(p.IsPublished ? "Publicado" : "Rascunho")</span>
+                        </td>
+                        <td class="hide-sm">@p.DisplayOrder</td>
+                        <td class="right nowrap">
+                            <a href="/projetos/@p.Id" target="_blank" class="icon-btn" title="Visualizar"><Icon Name="eye" /></a>
+                            <a id="project-edit-@p.Id" href="/admin/projetos/@p.Id" class="icon-btn" title="Editar"><Icon Name="edit" /></a>
+                            <button id="project-delete-@p.Id" class="icon-btn danger" title="Excluir" @onclick="() => AskDelete(p)"><Icon Name="trash" /></button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<ConfirmDialog @ref="_confirm" Title="Excluir projeto?" OnConfirm="DeleteAsync" />
+
+@code {
+    private List<Project>? _projects;
+    private ConfirmDialog _confirm = default!;
+    private Project? _pending;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync() => _projects = await Portfolio.GetAllProjectsAsync();
+
+    private void AskDelete(Project p)
+    {
+        _pending = p;
+        _confirm.Show($"\"{p.Title}\" e sua imagem serão removidos permanentemente.");
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_pending is null) return;
+        await Portfolio.DeleteProjectAsync(_pending.Id);
+        _message = $"Projeto \"{_pending.Title}\" excluído.";
+        _projects = await Portfolio.GetAllProjectsAsync();
+        _pending = null;
+    }
+}

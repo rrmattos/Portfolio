@@ -1,0 +1,166 @@
+@page "/"
+@inject PortfolioService Portfolio
+@inject IOptions<ProfileOptions> ProfileOptions
+@inject ILogger<Home> Logger
+
+<PageTitle>@Profile.Name — @Profile.Headline</PageTitle>
+<HeadContent>
+    <meta name="description" content="Portfólio de @Profile.Name, @Profile.Headline. Conheça meus projetos, experiência profissional e entre em contato." />
+    <meta property="og:title" content="@Profile.Name — @Profile.Headline" />
+    <meta property="og:type" content="website" />
+</HeadContent>
+
+<!-- HERO -->
+<section class="hero container" id="sobre">
+    <div class="hero-copy">
+        <h1 class="display">
+            Prazer, me chamo <span class="grad-text">Rafael</span>.<br />
+            <span class="hero-sub">@Profile.Headline</span>
+        </h1>
+        <p class="lead pre-line">@Profile.Bio</p>
+        <div class="hero-cta">
+            <a id="cta-projects" href="/projetos" class="btn btn-primary btn-lg">Ver projetos <Icon Name="arrow-right" /></a>
+            <a id="cta-contact" href="/#contato" class="btn btn-ghost btn-lg"><Icon Name="mail" /> Entrar em contato</a>
+        </div>
+        <div class="hero-meta">
+            @if (!string.IsNullOrWhiteSpace(Profile.Location))
+            {
+                <span><Icon Name="map-pin" Size="16" /> @Profile.Location</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(Profile.GitHubUrl))
+            {
+                <a href="@Profile.GitHubUrl" target="_blank" rel="noopener"><Icon Name="github" Size="16" /> GitHub</a>
+            }
+            @if (!string.IsNullOrWhiteSpace(Profile.LinkedInUrl))
+            {
+                <a href="@Profile.LinkedInUrl" target="_blank" rel="noopener"><Icon Name="linkedin" Size="16" /> LinkedIn</a>
+            }
+        </div>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+        <div class="profile-frame">
+            <div class="profile-glow"></div>
+            <div class="profile-avatar glass">
+                <img src="@(Profile.AvatarUrl ?? "/images/eu.png")"
+                     alt="Foto de perfil de @Profile.Name"
+                     onerror="this.onerror=null; this.src='/images/profile-placeholder.svg';" />
+            </div>
+            <div class="floating-badge glass fb-1"><Icon Name="sparkles" /> Unity 3D &amp; C#</div>
+            <div class="floating-badge glass fb-2"><Icon Name="code" /> .NET &amp; Web</div>
+        </div>
+    </div>
+</section>
+
+<!-- SKILLS -->
+@if (Profile.Skills.Count > 0)
+{
+    <section class="container skills-strip" aria-label="Tecnologias">
+        <div class="marquee">
+            <div class="marquee-track">
+                @foreach (var s in Profile.Skills.Concat(Profile.Skills))
+                {
+                    <span class="skill-chip">@s</span>
+                }
+            </div>
+        </div>
+    </section>
+}
+
+<!-- PROJECTS -->
+<section class="section container" id="projetos">
+    <header class="section-head">
+        <div>
+            <span class="eyebrow">Portfólio</span>
+            <h2>Projetos em destaque</h2>
+        </div>
+        <a href="/projetos" class="link-arrow">Ver todos <Icon Name="arrow-right" Size="16" /></a>
+    </header>
+
+    @if (_loadError)
+    {
+        <p class="alert alert-error">Não foi possível carregar o conteúdo no momento.</p>
+    }
+    else if (_projects is null)
+    {
+        <div class="grid-cards">
+            @for (var i = 0; i < 3; i++) { <div class="card skeleton"></div> }
+        </div>
+    }
+    else if (_projects.Count == 0)
+    {
+        <p class="muted empty-hint">Em breve novos projetos por aqui.</p>
+    }
+    else
+    {
+        <div class="grid-cards">
+            @foreach (var (p, i) in _projects.Select((p, i) => (p, i)))
+            {
+                <ProjectCard Project="p" Index="i" />
+            }
+        </div>
+    }
+</section>
+
+<!-- EXPERIENCE -->
+<section class="section container" id="experiencia">
+    <header class="section-head">
+        <div>
+            <span class="eyebrow">Carreira</span>
+            <h2>Experiência profissional</h2>
+        </div>
+    </header>
+    @if (_experiences is not null)
+    {
+        <ExperienceTimeline Items="_experiences" />
+    }
+</section>
+
+<!-- CONTACT -->
+<section class="section container contact-section" id="contato">
+    <div class="contact-copy">
+        <span class="eyebrow">Contato</span>
+        <h2>Vamos construir algo <span class="grad-text">incrível</span> juntos?</h2>
+        <p class="lead">Tem um projeto em mente, uma vaga ou só quer trocar uma ideia? Envie uma mensagem — respondo em até 48 horas.</p>
+        <ul class="contact-list">
+            @if (!string.IsNullOrWhiteSpace(Profile.Email))
+            {
+                <li><span class="ci"><Icon Name="mail" /></span><a href="mailto:@Profile.Email">@Profile.Email</a></li>
+            }
+            @if (!string.IsNullOrWhiteSpace(Profile.LinkedInUrl))
+            {
+                <li><span class="ci"><Icon Name="linkedin" /></span><a href="@Profile.LinkedInUrl" target="_blank" rel="noopener">LinkedIn</a></li>
+            }
+            @if (!string.IsNullOrWhiteSpace(Profile.GitHubUrl))
+            {
+                <li><span class="ci"><Icon Name="github" /></span><a href="@Profile.GitHubUrl" target="_blank" rel="noopener">GitHub</a></li>
+            }
+        </ul>
+    </div>
+    <ContactForm />
+</section>
+
+@code {
+    private List<Project>? _projects;
+    private List<Experience>? _experiences;
+    private bool _loadError;
+
+    private ProfileOptions Profile => ProfileOptions.Value;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var featured = await Portfolio.GetPublishedProjectsAsync(featuredOnly: true);
+            // Fall back to latest published projects if none is marked as featured.
+            _projects = (featured.Count > 0 ? featured : await Portfolio.GetPublishedProjectsAsync()).Take(6).ToList();
+            _experiences = await Portfolio.GetExperiencesAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao carregar dados da home");
+            _loadError = true;
+            _experiences = [];
+        }
+    }
+}

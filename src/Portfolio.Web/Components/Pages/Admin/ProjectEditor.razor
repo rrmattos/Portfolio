@@ -1,0 +1,239 @@
+@page "/admin/projetos/novo"
+@page "/admin/projetos/{Id:int}"
+@implements IDisposable
+@inject PortfolioService Portfolio
+@inject ImageStorageService Images
+@inject NavigationManager Nav
+@inject ILogger<ProjectEditor> Logger
+
+<PageTitle>@(IsNew ? "Novo projeto" : "Editar projeto") | Painel</PageTitle>
+
+<header class="admin-head">
+    <div>
+        <a href="/admin/projetos" class="link-back"><Icon Name="arrow-left" Size="16" /> Projetos</a>
+        <h1>@(IsNew ? "Novo projeto" : "Editar projeto")</h1>
+    </div>
+</header>
+
+@if (_notFound)
+{
+    <p class="alert alert-error">Projeto não encontrado.</p>
+}
+else if (_model is null)
+{
+    <div class="card skeleton tall"></div>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="SaveAsync" FormName="project-editor" class="editor-grid" novalidate>
+        <DataAnnotationsValidator />
+
+        <div class="card glass editor-main">
+            <div class="field">
+                <label for="p-title">Título</label>
+                <InputText id="p-title" @bind-Value="_model.Title" placeholder="Nome do projeto" />
+                <ValidationMessage For="() => _model.Title" />
+            </div>
+            <div class="field">
+                <label for="p-summary">Resumo <span class="optional">(aparece no card)</span></label>
+                <InputTextArea id="p-summary" rows="2" @bind-Value="_model.Summary" maxlength="280" placeholder="Uma ou duas frases sobre o projeto" />
+                <span class="hint">@(_model.Summary?.Length ?? 0)/280</span>
+                <ValidationMessage For="() => _model.Summary" />
+            </div>
+            <div class="field">
+                <label for="p-description">Descrição completa</label>
+                <InputTextArea id="p-description" rows="9" @bind-Value="_model.Description" placeholder="Contexto, desafios, solução e resultados. Separe parágrafos com uma linha em branco." />
+            </div>
+            <div class="field">
+                <label for="p-tech">Tecnologias <span class="optional">(separadas por vírgula)</span></label>
+                <InputText id="p-tech" @bind-Value="_model.Technologies" @bind-Value:event="oninput" placeholder="C#, Blazor, MySQL" />
+                @if (_model.TechList.Any())
+                {
+                    <ul class="tags preview">
+                        @foreach (var t in _model.TechList) { <li class="tag">@t</li> }
+                    </ul>
+                }
+            </div>
+            <div class="form-row">
+                <div class="field">
+                    <label for="p-repo">Repositório</label>
+                    <InputText id="p-repo" type="url" @bind-Value="_model.RepositoryUrl" placeholder="https://github.com/..." />
+                    <ValidationMessage For="() => _model.RepositoryUrl" />
+                </div>
+                <div class="field">
+                    <label for="p-live">Link online</label>
+                    <InputText id="p-live" type="url" @bind-Value="_model.LiveUrl" placeholder="https://..." />
+                    <ValidationMessage For="() => _model.LiveUrl" />
+                </div>
+            </div>
+        </div>
+
+        <aside class="editor-side">
+            <div class="card glass">
+                <h3 class="side-title">Imagem de capa</h3>
+                <div class="dropzone @(_uploading ? "busy" : "") @(string.IsNullOrWhiteSpace(_model.ImageUrl) ? "" : "has-image")">
+                    @if (!string.IsNullOrWhiteSpace(_model.ImageUrl))
+                    {
+                        <img src="@_model.ImageUrl" alt="Prévia da capa" />
+                    }
+                    else
+                    {
+                        <div class="dropzone-empty">
+                            <span class="stat-icon violet"><Icon Name="upload" Size="22" /></span>
+                            <p><strong>Clique ou arraste</strong> uma imagem</p>
+                            <p class="hint">JPG, PNG, WEBP ou GIF · até 5 MB</p>
+                        </div>
+                    }
+                    @if (_uploading)
+                    {
+                        <div class="dropzone-overlay"><span class="spinner lg"></span></div>
+                    }
+                    <InputFile id="p-image" OnChange="UploadAsync" accept="@ImageStorageService.AcceptAttribute" title="Selecionar imagem" />
+                </div>
+                @if (_uploadError is not null)
+                {
+                    <p class="alert alert-error sm">@_uploadError</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(_model.ImageUrl))
+                {
+                    <button id="p-image-remove" type="button" class="btn btn-ghost btn-sm btn-block" @onclick="RemoveImage"><Icon Name="trash" Size="16" /> Remover imagem</button>
+                }
+            </div>
+
+            <div class="card glass">
+                <h3 class="side-title">Publicação</h3>
+                <label class="switch">
+                    <InputCheckbox id="p-published" @bind-Value="_model.IsPublished" />
+                    <span class="switch-track"></span>
+                    <span>Publicado no site</span>
+                </label>
+                <label class="switch">
+                    <InputCheckbox id="p-featured" @bind-Value="_model.IsFeatured" />
+                    <span class="switch-track"></span>
+                    <span>Destaque na página inicial</span>
+                </label>
+                <label class="switch">
+                    <InputCheckbox id="p-show-repo" @bind-Value="_model.ShowRepository" />
+                    <span class="switch-track"></span>
+                    <span>Mostrar código fonte do projeto (GitHub)</span>
+                </label>
+                <div class="field">
+                    <label for="p-order">Ordem de exibição</label>
+                    <InputNumber id="p-order" @bind-Value="_model.DisplayOrder" />
+                    <span class="hint">Menor número aparece primeiro.</span>
+                </div>
+            </div>
+
+            @if (_saveError is not null)
+            {
+                <p class="alert alert-error">@_saveError</p>
+            }
+
+            <div class="editor-actions">
+                <a href="/admin/projetos" class="btn btn-ghost">Cancelar</a>
+                <button id="p-save" type="submit" class="btn btn-primary" disabled="@(_saving || _uploading)">
+                    @if (_saving) { <span class="spinner"></span> } else { <Icon Name="check" /> }
+                    Salvar projeto
+                </button>
+            </div>
+        </aside>
+    </EditForm>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private bool IsNew => Id is null;
+
+    private Project? _model;
+    private bool _notFound, _uploading, _saving, _saved;
+    private string? _uploadError, _saveError;
+
+    // Image uploaded during this session but not yet saved; deleted if the user leaves without saving.
+    private string? _pendingUpload;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsNew)
+        {
+            _model = new Project { IsPublished = true };
+            return;
+        }
+        _model = await Portfolio.GetProjectAsync(Id!.Value);
+        _notFound = _model is null;
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        _uploadError = null;
+        var file = e.File;
+        if (file.Size > ImageStorageService.MaxFileSize)
+        {
+            _uploadError = "A imagem deve ter no máximo 5 MB.";
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(ImageStorageService.MaxFileSize);
+            var url = await Images.SaveAsync(stream, file.ContentType);
+            DiscardPending();
+            _pendingUpload = url;
+            _model!.ImageUrl = url;
+        }
+        catch (InvalidOperationException ex)
+        {
+            _uploadError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Falha no upload de imagem");
+            _uploadError = "Falha ao enviar a imagem. Tente novamente.";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private void RemoveImage()
+    {
+        DiscardPending();
+        _model!.ImageUrl = null;
+    }
+
+    private void DiscardPending()
+    {
+        if (_pendingUpload is null) return;
+        Images.Delete(_pendingUpload);
+        _pendingUpload = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        _saveError = null;
+        try
+        {
+            await Portfolio.SaveProjectAsync(_model!);
+            _saved = true;
+            _pendingUpload = null;
+            Nav.NavigateTo("/admin/projetos");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao salvar projeto");
+            _saveError = "Não foi possível salvar o projeto.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (!_saved) DiscardPending();
+    }
+}

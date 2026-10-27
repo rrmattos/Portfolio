@@ -1,0 +1,207 @@
+@page "/admin/experiencias"
+@using System.Globalization
+@inject PortfolioService Portfolio
+@inject ILogger<AdminExperiences> Logger
+
+<PageTitle>Experiências | Painel</PageTitle>
+
+<header class="admin-head">
+    <div>
+        <h1>Experiências</h1>
+        <p class="muted">Mantenha seu histórico profissional atualizado.</p>
+    </div>
+    @if (_editing is null)
+    {
+        <button id="exp-new" class="btn btn-primary" @onclick="New"><Icon Name="plus" /> Nova experiência</button>
+    }
+</header>
+
+@if (_editing is not null)
+{
+    <EditForm Model="_editing" OnValidSubmit="SaveAsync" FormName="experience-editor" class="card glass exp-editor" novalidate>
+        <DataAnnotationsValidator />
+        <h2>@(_editing.Id == 0 ? "Nova experiência" : "Editar experiência")</h2>
+
+        <div class="form-row">
+            <div class="field">
+                <label for="e-role">Cargo</label>
+                <InputText id="e-role" @bind-Value="_editing.Role" placeholder="Desenvolvedor .NET" />
+                <ValidationMessage For="() => _editing.Role" />
+            </div>
+            <div class="field">
+                <label for="e-company">Empresa</label>
+                <InputText id="e-company" @bind-Value="_editing.Company" placeholder="Nome da empresa" />
+                <ValidationMessage For="() => _editing.Company" />
+            </div>
+        </div>
+
+        <div class="form-row three">
+            <div class="field">
+                <label for="e-location">Local</label>
+                <InputText id="e-location" @bind-Value="_editing.Location" placeholder="Remoto / Cidade, UF" />
+            </div>
+            <div class="field">
+                <label for="e-start">Início</label>
+                <InputDate id="e-start" Type="InputDateType.Month" @bind-Value="_editing.StartDate" />
+                <ValidationMessage For="() => _editing.StartDate" />
+            </div>
+            <div class="field">
+                <label for="e-end">Fim</label>
+                <InputDate id="e-end" Type="InputDateType.Month" @bind-Value="_editing.EndDate" disabled="@_editing.IsCurrent" />
+            </div>
+        </div>
+
+        <label class="switch">
+            <InputCheckbox id="e-current" @bind-Value="_editing.IsCurrent" />
+            <span class="switch-track"></span>
+            <span>Trabalho aqui atualmente</span>
+        </label>
+
+        <div class="field">
+            <label for="e-description">Descrição</label>
+            <InputTextArea id="e-description" rows="5" @bind-Value="_editing.Description" placeholder="Responsabilidades, conquistas e impacto." />
+        </div>
+
+        <div class="form-row">
+            <div class="field">
+                <label for="e-tech">Tecnologias <span class="optional">(separadas por vírgula)</span></label>
+                <InputText id="e-tech" @bind-Value="_editing.Technologies" placeholder="C#, Azure, Docker" />
+            </div>
+            <div class="field">
+                <label for="e-order">Ordem <span class="optional">(desempate)</span></label>
+                <InputNumber id="e-order" @bind-Value="_editing.DisplayOrder" />
+            </div>
+        </div>
+
+        @if (_error is not null) { <p class="alert alert-error">@_error</p> }
+        @if (_dateError is not null) { <p class="alert alert-error">@_dateError</p> }
+
+        <div class="editor-actions">
+            <button type="button" class="btn btn-ghost" @onclick="() => _editing = null">Cancelar</button>
+            <button id="e-save" type="submit" class="btn btn-primary" disabled="@_saving">
+                @if (_saving) { <span class="spinner"></span> } else { <Icon Name="check" /> }
+                Salvar
+            </button>
+        </div>
+    </EditForm>
+}
+
+@if (_message is not null)
+{
+    <p class="alert alert-success">@_message</p>
+}
+
+@if (_items is null)
+{
+    <div class="card skeleton"></div>
+}
+else if (_items.Count == 0 && _editing is null)
+{
+    <div class="card glass empty-state">
+        <span class="stat-icon cyan"><Icon Name="briefcase" Size="26" /></span>
+        <h2>Nenhuma experiência cadastrada</h2>
+        <p class="muted">Adicione seu histórico para exibi-lo na linha do tempo do site.</p>
+        <button class="btn btn-primary" @onclick="New"><Icon Name="plus" /> Adicionar experiência</button>
+    </div>
+}
+else
+{
+    <div class="exp-list">
+        @foreach (var e in _items)
+        {
+            <div class="card glass exp-row" @key="e.Id">
+                <span class="stat-icon cyan"><Icon Name="briefcase" /></span>
+                <div class="exp-row-body">
+                    <strong>@e.Role</strong> <span class="muted">· @e.Company</span>
+                    <p class="muted">
+                        @Fmt(e.StartDate) — @(e.IsCurrent || e.EndDate is null ? "Atual" : Fmt(e.EndDate.Value))
+                        @if (!string.IsNullOrWhiteSpace(e.Location)) { <text> · @e.Location</text> }
+                    </p>
+                </div>
+                @if (e.IsCurrent) { <span class="status on">Atual</span> }
+                <div class="nowrap">
+                    <button id="exp-edit-@e.Id" class="icon-btn" title="Editar" @onclick="() => Edit(e)"><Icon Name="edit" /></button>
+                    <button id="exp-delete-@e.Id" class="icon-btn danger" title="Excluir" @onclick="() => AskDelete(e)"><Icon Name="trash" /></button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<ConfirmDialog @ref="_confirm" Title="Excluir experiência?" OnConfirm="DeleteAsync" />
+
+@code {
+    private List<Experience>? _items;
+    private Experience? _editing, _pending;
+    private ConfirmDialog _confirm = default!;
+    private bool _saving;
+    private string? _message, _error, _dateError;
+
+    private static readonly CultureInfo PtBr = new("pt-BR");
+    private static string Fmt(DateTime d) => d.ToString("MMM/yyyy", PtBr);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync() => _items = await Portfolio.GetExperiencesAsync();
+
+    private void New()
+    {
+        _message = _error = _dateError = null;
+        _editing = new Experience { StartDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1) };
+    }
+
+    private void Edit(Experience e)
+    {
+        _message = _error = _dateError = null;
+        // Work on a copy so cancelling doesn't alter the list.
+        _editing = new Experience
+        {
+            Id = e.Id, Company = e.Company, Role = e.Role, Location = e.Location,
+            StartDate = e.StartDate, EndDate = e.EndDate, IsCurrent = e.IsCurrent,
+            Description = e.Description, Technologies = e.Technologies, DisplayOrder = e.DisplayOrder,
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        _dateError = null;
+        if (!_editing!.IsCurrent && _editing.EndDate is { } end && end < _editing.StartDate)
+        {
+            _dateError = "A data de fim não pode ser anterior à de início.";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            await Portfolio.SaveExperienceAsync(_editing);
+            _message = "Experiência salva com sucesso.";
+            _editing = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao salvar experiência");
+            _error = "Não foi possível salvar.";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void AskDelete(Experience e)
+    {
+        _pending = e;
+        _confirm.Show($"\"{e.Role} — {e.Company}\" será removida da sua linha do tempo.");
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (_pending is null) return;
+        await Portfolio.DeleteExperienceAsync(_pending.Id);
+        _message = "Experiência excluída.";
+        _pending = null;
+        await LoadAsync();
+    }
+}

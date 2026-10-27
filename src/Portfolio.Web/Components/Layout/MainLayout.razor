@@ -1,0 +1,70 @@
+@inherits LayoutComponentBase
+@inject IOptions<ProfileOptions> ProfileOptions
+@implements IDisposable
+@inject NavigationManager Nav
+
+<div class="bg-orbs" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+    <span class="grid-overlay"></span>
+</div>
+
+<header class="site-header">
+    <nav class="container nav" aria-label="Principal">
+        <a href="/" class="brand" @onclick="CloseMenu">
+            <!-- <span class="brand-mark">@Profile.Initials</span> -->
+            <span class="brand-name">@Profile.Name</span>
+        </a>
+
+        <button id="nav-toggle" class="nav-toggle @(_menuOpen ? "open" : "")" aria-label="Abrir menu"
+                aria-expanded="@_menuOpen" @onclick="() => _menuOpen = !_menuOpen">
+            <span></span><span></span><span></span>
+        </button>
+
+        <ul class="nav-links @(_menuOpen ? "open" : "")">
+            <li><a href="/#sobre" @onclick="CloseMenu">Sobre</a></li>
+            <li><NavLink href="/projetos" @onclick="CloseMenu">Projetos</NavLink></li>
+            <li><a href="/#experiencia" @onclick="CloseMenu">Experiência</a></li>
+            <li><a href="/#contato" class="btn btn-primary btn-sm" @onclick="CloseMenu">Fale comigo</a></li>
+        </ul>
+    </nav>
+</header>
+
+<main id="main">
+    @Body
+</main>
+
+<footer class="site-footer">
+    <div class="container footer-inner">
+        <p>© @DateTime.Now.Year @Profile.Name. Feito com <span class="grad-text">Blazor</span> &amp; .NET.</p>
+        <div class="footer-links">
+            @if (!string.IsNullOrWhiteSpace(Profile.GitHubUrl))
+            {
+                <a href="@Profile.GitHubUrl" target="_blank" rel="noopener" aria-label="GitHub"><Icon Name="github" /></a>
+            }
+            @if (!string.IsNullOrWhiteSpace(Profile.LinkedInUrl))
+            {
+                <a href="@Profile.LinkedInUrl" target="_blank" rel="noopener" aria-label="LinkedIn"><Icon Name="linkedin" /></a>
+            }
+        </div>
+    </div>
+</footer>
+
+@code {
+    private bool _menuOpen;
+    private ProfileOptions Profile => ProfileOptions.Value;
+
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (!_menuOpen) return;
+        _menuOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void CloseMenu() => _menuOpen = false;
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

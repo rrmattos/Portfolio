@@ -1,0 +1,80 @@
+@page "/projetos"
+@inject PortfolioService Portfolio
+@inject ILogger<Projects> Logger
+
+<PageTitle>Projetos | Portfólio</PageTitle>
+<HeadContent>
+    <meta name="description" content="Todos os projetos do portfólio: aplicações web, APIs e sistemas desenvolvidos com .NET e outras tecnologias." />
+</HeadContent>
+
+<section class="section container page-top">
+    <header class="page-head">
+        <span class="eyebrow">Portfólio</span>
+        <h1 class="display-sm">Todos os <span class="grad-text">projetos</span></h1>
+        <p class="lead">Uma seleção do que venho construindo — de APIs a aplicações completas.</p>
+    </header>
+
+    @if (_all is { Count: > 0 })
+    {
+        <div class="filter-bar" role="toolbar" aria-label="Filtrar por tecnologia">
+            <button id="filter-all" class="chip @(_filter is null ? "active" : "")" @onclick="() => _filter = null">Todos</button>
+            @foreach (var tech in _techs)
+            {
+                <button id="filter-@Slug(tech)" class="chip @(_filter == tech ? "active" : "")" @onclick="() => _filter = tech">@tech</button>
+            }
+        </div>
+    }
+
+    @if (_loadError)
+    {
+        <p class="alert alert-error">Não foi possível carregar os projetos no momento.</p>
+    }
+    else if (_all is null)
+    {
+        <div class="grid-cards">
+            @for (var i = 0; i < 6; i++) { <div class="card skeleton"></div> }
+        </div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <p class="muted empty-hint">Nenhum projeto encontrado.</p>
+    }
+    else
+    {
+        <div class="grid-cards">
+            @foreach (var (p, i) in Filtered.Select((p, i) => (p, i)))
+            {
+                <ProjectCard @key="p.Id" Project="p" Index="i" />
+            }
+        </div>
+    }
+</section>
+
+@code {
+    private List<Project>? _all;
+    private List<string> _techs = [];
+    private string? _filter;
+    private bool _loadError;
+
+    private List<Project> Filtered => _filter is null
+        ? _all ?? []
+        : (_all ?? []).Where(p => p.TechList.Contains(_filter, StringComparer.OrdinalIgnoreCase)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _all = await Portfolio.GetPublishedProjectsAsync();
+            _techs = _all.SelectMany(p => p.TechList)
+                .GroupBy(t => t, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(g => g.Count()).Select(g => g.Key).Take(12).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Erro ao carregar projetos");
+            _loadError = true;
+        }
+    }
+
+    private static string Slug(string s) => new(s.ToLowerInvariant().Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray());
+}

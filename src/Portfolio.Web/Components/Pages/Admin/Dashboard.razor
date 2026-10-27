@@ -1,0 +1,94 @@
+@page "/admin"
+@inject PortfolioService Portfolio
+@inject ContactService Contact
+
+<PageTitle>Dashboard | Painel</PageTitle>
+
+<header class="admin-head">
+    <div>
+        <h1>Dashboard</h1>
+        <p class="muted">Visão geral do seu portfólio.</p>
+    </div>
+    <a id="dash-new-project" href="/admin/projetos/novo" class="btn btn-primary"><Icon Name="plus" /> Novo projeto</a>
+</header>
+
+@if (_error is not null)
+{
+    <p class="alert alert-error">@_error</p>
+}
+else if (_stats is null)
+{
+    <div class="stats-grid">@for (var i = 0; i < 3; i++) { <div class="card skeleton short"></div> }</div>
+}
+else
+{
+    <div class="stats-grid">
+        <a href="/admin/projetos" class="card glass stat-card">
+            <span class="stat-icon violet"><Icon Name="folder" Size="22" /></span>
+            <div>
+                <p class="stat-value">@_stats.Projects</p>
+                <p class="stat-label">Projetos <span class="muted">· @_stats.PublishedProjects publicados</span></p>
+            </div>
+        </a>
+        <a href="/admin/experiencias" class="card glass stat-card">
+            <span class="stat-icon cyan"><Icon Name="briefcase" Size="22" /></span>
+            <div>
+                <p class="stat-value">@_stats.Experiences</p>
+                <p class="stat-label">Experiências</p>
+            </div>
+        </a>
+        <a href="/admin/mensagens" class="card glass stat-card">
+            <span class="stat-icon pink"><Icon Name="inbox" Size="22" /></span>
+            <div>
+                <p class="stat-value">@_stats.Messages</p>
+                <p class="stat-label">Mensagens <span class="muted">· @_stats.UnreadMessages não lidas</span></p>
+            </div>
+        </a>
+    </div>
+
+    <section class="card glass admin-panel">
+        <div class="panel-head">
+            <h2>Mensagens recentes</h2>
+            <a href="/admin/mensagens" class="link-arrow">Ver todas <Icon Name="arrow-right" Size="16" /></a>
+        </div>
+        @if (_recent.Count == 0)
+        {
+            <p class="muted empty-hint">Nenhuma mensagem recebida ainda.</p>
+        }
+        else
+        {
+            <ul class="msg-mini-list">
+                @foreach (var m in _recent)
+                {
+                    <li class="@(m.IsRead ? "" : "unread")">
+                        <span class="avatar">@m.Name[..1].ToUpperInvariant()</span>
+                        <div>
+                            <strong>@m.Name</strong> <span class="muted">· @m.Subject</span>
+                            <p class="muted clamp-1">@m.Message</p>
+                        </div>
+                        <time class="muted">@m.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm")</time>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    private DashboardStats? _stats;
+    private List<ContactMessage> _recent = [];
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _stats = await Portfolio.GetStatsAsync();
+            _recent = (await Contact.GetMessagesAsync()).Take(5).ToList();
+        }
+        catch (Exception)
+        {
+            _error = "Não foi possível conectar ao banco de dados.";
+        }
+    }
+}
