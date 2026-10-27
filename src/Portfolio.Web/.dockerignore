@@ -1,0 +1,10 @@
+**/.git
+**/.vs
+**/bin
+**/obj
+**/.vscode
+**/wwwroot/uploads/*
+!**/wwwroot/uploads/.gitkeep
+appsettings.Development.json
+*.user
+*.suo

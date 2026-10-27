@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: mysql:8.0
@@ -8,7 +6,13 @@ services:
     environment:
       MYSQL_DATABASE: portfoliodb
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
-    command: --default-authentication-plugin=mysql_native_password --performance-schema=OFF
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --performance-schema=OFF
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
@@ -20,11 +24,13 @@ services:
     restart: always
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__DefaultConnection=Server=db;Port=3306;Database=portfoliodb;Uid=root;Pwd=${DB_PASSWORD};
+      - ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+      - ConnectionStrings__DefaultConnection=Server=db;Port=3306;Database=portfoliodb;Uid=root;Pwd=${DB_PASSWORD};CharSet=utf8mb4;
+      - Seed__SampleData=true
       - Jwt__Key=${JWT_KEY}
       - Admin__Email=${ADMIN_EMAIL}
       - Admin__Password=${ADMIN_PASSWORD}
-      # Deixar ja mapeado para formulário de contato no site
+      # Formulário de contato
       - Smtp__Host=${SMTP_HOST}
       - Smtp__User=${SMTP_USER}
       - Smtp__Password=${SMTP_PASSWORD}
@@ -33,7 +39,8 @@ services:
     volumes:
       - app_uploads:/app/wwwroot/uploads
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - app-net
 
@@ -48,7 +55,6 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-      - app_uploads:/app/wwwroot/uploads
     depends_on:
       - app
     networks:

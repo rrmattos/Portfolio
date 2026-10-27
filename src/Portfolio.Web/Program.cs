@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Portfolio.Web.Api;
@@ -66,12 +67,22 @@ builder.Services.AddScoped<ImageStorageService>();
 builder.Services.AddScoped<PortfolioService>();
 builder.Services.AddScoped<ContactService>();
 
+// Support running behind reverse proxies (Caddy/Nginx in Docker)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options => options.DetailedErrors = builder.Environment.IsDevelopment())
     // Allow media uploads up to 5 MB (with base64/SignalR overhead and multiple files) through the SignalR circuit.
     .AddHubOptions(options => options.MaximumReceiveMessageSize = 32 * 1024 * 1024);
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 await DbInitializer.InitializeAsync(app.Services);
 
