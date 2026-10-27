@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: portfoliodb
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+    command: --default-authentication-plugin=mysql_native_password --performance-schema=OFF
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app-net
+
+  app:
+    build: .
+    container_name: dotnet_app
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=db;Port=3306;Database=portfoliodb;Uid=root;Pwd=${DB_PASSWORD};
+    volumes:
+      - app_uploads:/app/wwwroot/uploads
+    depends_on:
+      - db
+    networks:
+      - app-net
+
+  caddy:
+    image: caddy:latest
+    container_name: caddy_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      - app_uploads:/app/wwwroot/uploads
+    depends_on:
+      - app
+    networks:
+      - app-net
+
+volumes:
+  mysql_data:
+  app_uploads:
+  caddy_data:
+  caddy_config:
+
+networks:
+  app-net:
+    driver: bridge
