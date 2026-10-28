@@ -47,11 +47,14 @@ else
                 </div>
                 <div class="field">
                     <label for="p-tech">Tecnologias <span class="optional">(separadas por vírgula)</span></label>
-                    <InputText id="p-tech" @bind-Value="_model.Technologies" @bind-Value:event="oninput" placeholder="C#, Blazor, MySQL" />
+                    <InputText id="p-tech" @bind-Value="_model.Technologies" placeholder="C#, Blazor, MySQL" autocomplete="off" />
                     @if (_model.TechList.Any())
                     {
                         <ul class="tags preview">
-                            @foreach (var t in _model.TechList) { <li class="tag">@t</li> }
+                            @foreach (var (t, i) in _model.TechList.Select((x, idx) => (x, idx)))
+                            {
+                                <li class="tag" @key="i">@t</li>
+                            }
                         </ul>
                     }
                 </div>
